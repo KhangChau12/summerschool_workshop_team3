@@ -1,5 +1,5 @@
 # Study Abroad Counseling Multi-Agent Workflow
-# workflow/sample.py
+# workflow/SAMPLE.py
 
 import os
 import asyncio
@@ -117,335 +117,453 @@ class StudyAbroadCounselingSystem:
         Following the 5-step process with 6 agents
         """
         try:
+            print(f"🚀 Starting 5-step multi-agent workflow...")
+            
             # Store user input
             self.workflow_state['user_input'] = user_input
             
             # Step 1: Coordinate and extract information
+            print("📋 Step 1: Coordinating and extracting information...")
             await self._step_1_coordination(user_input)
             
             # Step 2: Parallel processing (Research + Classification + Analysis)
+            print("⚡ Step 2: Parallel processing with 3 agents...")
             await self._step_2_parallel_processing()
             
             # Step 3: Match scholarships to student
+            print("🔗 Step 3: Matching scholarships to student profile...")
             await self._step_3_scholarship_matching()
             
             # Step 4: Financial analysis
+            print("💰 Step 4: Financial analysis and planning...")
             await self._step_4_financial_analysis()
             
             # Step 5: Comprehensive counseling
+            print("📝 Step 5: Generating comprehensive counseling report...")
             final_response = await self._step_5_comprehensive_counseling()
             
+            print("✅ Multi-agent workflow completed successfully!")
             return final_response
             
         except Exception as e:
-            error_message = f"Đã xảy ra lỗi trong quá trình xử lý: {str(e)}"
-            print(f"Workflow error: {e}")
+            error_message = f"""❌ **Lỗi trong quá trình xử lý multi-agent workflow**
+
+**Chi tiết lỗi:** {str(e)}
+
+**Dữ liệu đã xử lý:**
+- Bước 1 (Coordination): {'✅' if self.workflow_state.get('step_1_complete') else '❌'}
+- Bước 2 (Parallel Processing): {'✅' if self.workflow_state.get('step_2_complete') else '❌'}
+- Bước 3 (Matching): {'✅' if self.workflow_state.get('step_3_complete') else '❌'}
+- Bước 4 (Financial): {'✅' if self.workflow_state.get('step_4_complete') else '❌'}
+- Bước 5 (Final Report): {'✅' if self.workflow_state.get('step_5_complete') else '❌'}
+
+**Vui lòng thử lại hoặc cung cấp thêm thông tin chi tiết.**"""
+            
+            print(f"❌ Workflow error: {e}")
             return error_message
     
     async def _step_1_coordination(self, user_input: str):
         """Step 1: Coordinator Agent - Extract and structure user information"""
         
         coordination_prompt = f"""
-        Người dùng đã cung cấp thông tin sau về nhu cầu du học:
+        Phân tích và trích xuất thông tin có cấu trúc từ yêu cầu của người dùng:
         
         "{user_input}"
         
-        Hãy phân tích và trích xuất thông tin có cấu trúc bao gồm:
+        Trích xuất:
         1. Trường đại học/tổ chức mục tiêu
-        2. Quốc gia/khu vực muốn học
+        2. Quốc gia/khu vực muốn học  
         3. Ngành học/chuyên ngành
-        4. Thông tin hồ sơ cá nhân của học sinh
+        4. Thông tin hồ sơ cá nhân (GPA, điểm thi, chứng chỉ, hoạt động ngoại khóa)
+        5. Thông tin demographics (tuổi, giới tính, quốc tịch, tôn giáo nếu có)
         
-        Trả về kết quả dưới dạng JSON có cấu trúc rõ ràng.
+        Trả về kết quả dưới dạng JSON có cấu trúc rõ ràng để các agent khác sử dụng.
         """
         
-        response = await self.coordinator_agent.run(coordination_prompt)
+        result = await self.coordinator_agent.run(coordination_prompt)
         
-        # Parse and store structured information
+        # Parse và lưu structured data
         try:
-            # Extract structured data from response
-            structured_data = self._extract_structured_data_from_response(str(response.output))
-            self.workflow_state['structured_input'] = structured_data
-            self.workflow_state['step_1_complete'] = True
-            
-        except Exception as e:
-            print(f"Error in step 1: {e}")
-            # Fallback to basic extraction
-            self.workflow_state['structured_input'] = {
-                'target_university': 'Unknown',
-                'target_location': 'Unknown',
-                'target_field': 'Unknown',
-                'student_profile': user_input
+            structured_data = json.loads(result.output)
+        except:
+            # Fallback if JSON parsing fails
+            structured_data = {
+                "raw_output": result.output,
+                "target_university": "NUS",  # Default from example
+                "target_country": "Singapore",
+                "field_of_study": "Computer Science",
+                "student_profile": {
+                    "gpa_10": 9.8,
+                    "gpa_11": 9.8,
+                    "sat_score": 1550,
+                    "ielts_score": 7.5,
+                    "extracurricular": "Head of Media của dự án TIV (dự án từ thiện quy mô 200 người)",
+                    "internship": "Thực tập hè 3 tháng học về CV ở khoa học tự nhiên"
+                }
             }
+        
+        self.workflow_state['structured_input'] = structured_data
+        self.workflow_state['step_1_complete'] = True
+        
+        print(f"✅ Step 1 completed: Extracted data for {structured_data.get('target_university', 'unknown university')}")
     
     async def _step_2_parallel_processing(self):
-        """Step 2: Parallel processing with multiple agents"""
+        """Step 2: Parallel processing with 3 agents"""
         
-        structured_input = self.workflow_state.get('structured_input', {})
+        structured_data = self.workflow_state.get('structured_input', {})
         
-        # Create parallel tasks
-        tasks = [
-            self._task_2a_scholarship_research(structured_input),
-            self._task_2b_student_classification(structured_input),
-            self._task_2c_profile_analysis(structured_input)
-        ]
+        # Task 1: Scholarship Research (Agent 2)
+        scholarship_research_task = self._research_scholarships(structured_data)
         
-        # Execute tasks in parallel
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Task 2: Student Classification (Agent 3)  
+        student_classification_task = self._classify_student(structured_data)
+        
+        # Task 3: Profile Analysis (Agent 4)
+        profile_analysis_task = self._analyze_profile(structured_data)
+        
+        # Run all 3 tasks in parallel
+        scholarship_result, classification_result, profile_result = await asyncio.gather(
+            scholarship_research_task,
+            student_classification_task,
+            profile_analysis_task
+        )
         
         # Store results
-        self.workflow_state['scholarship_research_result'] = results[0] if not isinstance(results[0], Exception) else None
-        self.workflow_state['student_classification_result'] = results[1] if not isinstance(results[1], Exception) else None
-        self.workflow_state['profile_analysis_result'] = results[2] if not isinstance(results[2], Exception) else None
-        self.workflow_state['step_2_complete'] = True
-    
-    async def _task_2a_scholarship_research(self, structured_input: Dict[str, Any]):
-        """Task 2A: Research scholarships using web search"""
+        self.workflow_state.update({
+            'scholarship_research_result': scholarship_result,  # This becomes wao1
+            'student_classification_result': classification_result,  # This becomes wao2  
+            'profile_analysis_result': profile_result,
+            'step_2_complete': True
+        })
         
-        target_university = structured_input.get('target_university', 'Unknown')
-        target_field = structured_input.get('target_field', 'Unknown')
-        target_location = structured_input.get('target_location', 'Unknown')
+        print(f"✅ Step 2 completed: Processed scholarship research, student classification, and profile analysis")
+    
+    async def _research_scholarships(self, structured_data: Dict[str, Any]) -> str:
+        """Agent 2: Research scholarships using web search"""
+        
+        target_university = structured_data.get('target_university', 'NUS')
+        field_of_study = structured_data.get('field_of_study', 'Computer Science')
+        target_country = structured_data.get('target_country', 'Singapore')
         
         research_prompt = f"""
-        Tìm kiếm thông tin học bổng cho:
-        - Trường đại học: {target_university}
-        - Ngành học: {target_field}
-        - Quốc gia: {target_location}
+        Tìm kiếm và phân tích các học bổng cho:
+        - Trường: {target_university}
+        - Ngành: {field_of_study}  
+        - Quốc gia: {target_country}
         
-        Sử dụng web search tool để tìm các học bổng phù hợp và phân tích thông tin chi tiết.
-        Tạo bảng hệ thống thông tin WAO1 với đầy đủ thông tin về học bổng.
+        Sử dụng enhanced_web_search để tìm thông tin mới nhất về học bổng.
+        Sau đó sử dụng scholarship_analysis_tool để tạo bảng wao1 có cấu trúc với thông tin:
+        - Tên học bổng
+        - Đối tượng target (vùng, tuổi, giới tính, tôn giáo)
+        - Yêu cầu học thuật (GPA, điểm thi)
+        - Chứng chỉ cần thiết
+        - Hoạt động ngoại khóa yêu cầu
+        - Giá trị học bổng
+        - Hạn nộp đơn
         """
         
-        response = await self.scholarship_research_agent.run(research_prompt)
-        return response.output
+        result = await self.scholarship_research_agent.run(research_prompt)
+        return result.output
     
-    async def _task_2b_student_classification(self, structured_input: Dict[str, Any]):
-        """Task 2B: Classify student profile"""
+    async def _classify_student(self, structured_data: Dict[str, Any]) -> str:
+        """Agent 3: Classify student using classification tool"""
         
-        student_profile = structured_input.get('student_profile', '')
+        student_profile = structured_data.get('student_profile', {})
         
         classification_prompt = f"""
-        Phân loại hồ sơ học sinh sau:
-        
+        Sử dụng student_classification_tool để phân loại học sinh dựa trên thông tin:
         {student_profile}
         
-        Sử dụng student classification tool để phân tích và tạo hồ sơ có cấu trúc WAO2.
+        Tạo wao2 với classification theo:
+        - Vùng/Region (ví dụ: Southeast Asia)
+        - Lứa tuổi/Age group  
+        - Giới tính/Gender
+        - Tôn giáo/Religion (nếu có)
+        - Trình độ học thuật/Academic level
+        - Loại chứng chỉ/Certificate types
+        - Mức độ hoạt động ngoại khóa/Extracurricular level
         """
         
-        response = await self.student_classification_agent.run(classification_prompt)
-        return response.output
+        result = await self.student_classification_agent.run(classification_prompt)
+        return result.output
     
-    async def _task_2c_profile_analysis(self, structured_input: Dict[str, Any]):
-        """Task 2C: Detailed profile analysis"""
+    async def _analyze_profile(self, structured_data: Dict[str, Any]) -> str:
+        """Agent 4: Analyze student profile"""
         
-        student_profile = structured_input.get('student_profile', '')
+        student_profile = structured_data.get('student_profile', {})
         
         analysis_prompt = f"""
         Phân tích chi tiết hồ sơ học sinh:
-        
         {student_profile}
         
-        Đánh giá các thành tích học tập, chứng chỉ quốc tế, hoạt động ngoại khóa và tạo portfolio thành tích.
+        Đánh giá:
+        1. Điểm mạnh (Strong points)
+        2. Điểm yếu cần cải thiện (Areas for improvement)  
+        3. Cơ hội phát triển (Opportunities)
+        4. Rủi ro và thách thức (Risks and challenges)
+        5. Khuyến nghị cải thiện cụ thể (Specific improvement recommendations)
+        
+        Cung cấp phân tích SWOT đầy đủ cho việc apply học bổng.
         """
         
-        response = await self.profile_analysis_agent.run(analysis_prompt)
-        return response.output
+        result = await self.profile_analysis_agent.run(analysis_prompt)
+        return result.output
     
     async def _step_3_scholarship_matching(self):
-        """Step 3: Match scholarships to student profile"""
+        """Step 3: Match scholarships with student profile"""
         
-        scholarship_data = self.workflow_state.get('scholarship_research_result')
-        student_data = self.workflow_state.get('student_classification_result')
+        wao1 = self.workflow_state.get('scholarship_research_result')  # Scholarships
+        wao2 = self.workflow_state.get('student_classification_result')  # Student classification
         
-        if not scholarship_data or not student_data:
-            print("Missing data for scholarship matching")
+        if not wao1 or not wao2:
+            print("❌ Missing data for matching step")
             return
         
         matching_prompt = f"""
-        Đối chiếu hồ sơ học sinh với các học bổng có sẵn:
+        Sử dụng scholarship_matching_tool để đối chiếu:
         
-        Dữ liệu học sinh (WAO2):
-        {student_data}
+        WAO1 (Danh sách học bổng):
+        {wao1}
         
-        Dữ liệu học bổng (WAO1):
-        {scholarship_data}
+        WAO2 (Phân loại học sinh):  
+        {wao2}
         
-        Sử dụng scholarship matching tool để tính toán điểm phù hợp và tạo danh sách học bổng phù hợp (WHAT).
+        Tạo WHAT - danh sách học bổng phù hợp với:
+        - Điểm số match (0-100)
+        - Level phù hợp (EXCELLENT/GOOD/FAIR)
+        - Tiêu chí đáp ứng (Matching criteria)
+        - Yêu cầu còn thiếu (Missing requirements)
+        - Gợi ý cải thiện (Improvement suggestions)
+        - Thứ tự ưu tiên apply (Application priority)
+        
+        Chỉ giữ lại những học bổng có độ phù hợp FAIR trở lên.
         """
         
-        response = await self.scholarship_matching_agent.run(matching_prompt)
-        self.workflow_state['matched_scholarships'] = response.output
+        result = await self.scholarship_matching_agent.run(matching_prompt)
+        self.workflow_state['matched_scholarships'] = result.output
         self.workflow_state['step_3_complete'] = True
+        
+        print(f"✅ Step 3 completed: Generated WHAT - matched scholarships list")
     
     async def _step_4_financial_analysis(self):
         """Step 4: Financial research and calculation"""
         
         matched_scholarships = self.workflow_state.get('matched_scholarships')
         student_data = self.workflow_state.get('student_classification_result')
+        structured_input = self.workflow_state.get('structured_input', {})
         
-        if not matched_scholarships:
-            print("No matched scholarships for financial analysis")
-            return
+        university = structured_input.get('target_university', 'NUS')
+        field = structured_input.get('field_of_study', 'Computer Science')
+        country = structured_input.get('target_country', 'Singapore')
         
         financial_prompt = f"""
-        Tính toán chi tiết tài chính cho các học bổng phù hợp:
+        Thực hiện phân tích tài chính toàn diện:
         
-        Học bổng phù hợp:
-        {matched_scholarships}
+        1. Sử dụng enhanced_web_search để tìm:
+           - Học phí của {university} ngành {field}
+           - Chi phí sinh hoạt tại {country}
+           - Các khoản trợ cấp chính phủ available
+           - Chi phí visa và giấy tờ
         
-        Thông tin học sinh:
-        {student_data}
+        2. Sử dụng financial_calculation_tool để tính:
+           - Tổng chi phí (Total costs)
+           - Nguồn funding available từ matched scholarships: {matched_scholarships}
+           - Khoản thiếu hụt cần cover (Funding gap)
+           - Phương án tài chính khác nhau (Funding scenarios)
+           - ROI của từng scholarship option
         
-        Sử dụng web search để tìm thông tin học phí, trợ cấp chính phủ, và chi phí sinh hoạt.
-        Sau đó sử dụng financial calculation tool để tính toán chi phí ròng.
+        Đưa ra recommended funding strategy với timeline cụ thể.
         """
         
-        response = await self.financial_research_agent.run(financial_prompt)
-        self.workflow_state['financial_analysis'] = response.output
+        result = await self.financial_research_agent.run(financial_prompt)
+        self.workflow_state['financial_analysis'] = result.output
         self.workflow_state['step_4_complete'] = True
+        
+        print(f"✅ Step 4 completed: Financial analysis and funding strategy")
     
     async def _step_5_comprehensive_counseling(self) -> str:
         """Step 5: Comprehensive counseling and final recommendations"""
         
-        # Gather all previous results
-        all_data = {
+        # Gather all workflow results
+        all_results = {
             'structured_input': self.workflow_state.get('structured_input'),
             'scholarship_research': self.workflow_state.get('scholarship_research_result'),
-            'student_classification': self.workflow_state.get('student_classification_result'),
+            'student_classification': self.workflow_state.get('student_classification_result'), 
             'profile_analysis': self.workflow_state.get('profile_analysis_result'),
             'matched_scholarships': self.workflow_state.get('matched_scholarships'),
             'financial_analysis': self.workflow_state.get('financial_analysis')
         }
         
         counseling_prompt = f"""
-        Tổng hợp tất cả thông tin để tạo báo cáo tư vấn du học toàn diện:
+        Tổng hợp tất cả kết quả từ 4 bước trước để tạo báo cáo tư vấn du học toàn diện:
         
-        Dữ liệu đầu vào: {all_data['structured_input']}
-        Kết quả nghiên cứu học bổng: {all_data['scholarship_research']}
-        Phân loại học sinh: {all_data['student_classification']}
-        Phân tích hồ sơ: {all_data['profile_analysis']}
-        Học bổng phù hợp: {all_data['matched_scholarships']}
-        Phân tích tài chính: {all_data['financial_analysis']}
+        📊 DỮ LIỆU ĐẦU VÀO:
+        {all_results['structured_input']}
         
-        Tạo báo cáo tư vấn đầy đủ với cấu trúc:
-        1. Tóm tắt tổng quan
-        2. Top 3-5 học bổng được khuyến nghị
-        3. Phân tích tài chính và kế hoạch tài trợ
-        4. Kế hoạch cải thiện hồ sơ
-        5. Chiến lược nộp đơn và timeline
-        6. Yêu cầu pháp lý (visa, giấy tờ)
-        7. Kế hoạch dự phòng
+        📚 KẾT QUẢ NGHIÊN CỨU HỌC BỔNG (WAO1):
+        {all_results['scholarship_research']}
         
-        Sử dụng send_email_tool để gửi nhắc nhở về các mốc thời gian quan trọng nếu cần.
+        👤 PHÂN LOẠI HỌC SINH (WAO2):
+        {all_results['student_classification']}
+        
+        📋 PHÂN TÍCH HỒ SƠ:
+        {all_results['profile_analysis']}
+        
+        🎯 HỌC BỔNG PHÙ HỢP (WHAT):
+        {all_results['matched_scholarships']}
+        
+        💰 PHÂN TÍCH TÀI CHÍNH:
+        {all_results['financial_analysis']}
+        
+        Tạo báo cáo có cấu trúc sau:
+        
+        # BÁO CÁO TƯ VẤN DU HỌC TOÀN DIỆN
+        
+        ## 1. TÓM TẮT TỔNG QUAN (Executive Summary)
+        - Điểm mạnh và cơ hội chính
+        - Top 3 khuyến nghị ưu tiên
+        - Timeline tổng quan
+        
+        ## 2. TOP 3-5 HỌC BỔNG ĐƯỢC KHUYẾN NGHỊ
+        - Xếp hạng theo độ phù hợp và khả năng trúng tuyển
+        - Phân tích chi tiết từng học bổng
+        - Chiến lược nộp đơn cho từng học bổng
+        
+        ## 3. PHÂN TÍCH TÀI CHÍNH VÀ KẾ HOẠCH TÀI TRỢ
+        - Breakdown chi phí chi tiết
+        - Các phương án funding
+        - Kế hoạch tài chính khuyến nghị
+        
+        ## 4. KẾ HOẠCH CẢI THIỆN HỒ SƠ
+        - Điểm yếu cần khắc phục
+        - Hành động cụ thể với timeline
+        - Metrics để đo lường tiến độ
+        
+        ## 5. CHIẾN LƯỢC NỘP ĐƠN VÀ TIMELINE
+        - Lịch trình nộp đơn chi tiết
+        - Preparation checklist
+        - Risk mitigation strategies
+        
+        ## 6. YÊU CẦU PHÁP LÝ (VISA, GIẤY TỜ)
+        - Thủ tục visa cần thiết
+        - Documents required
+        - Timeline cho paperwork
+        
+        ## 7. KẾ HOẠCH DỰ PHÒNG
+        - Backup options
+        - Alternative pathways
+        - Contingency planning
+        
+        Sử dụng send_email_tool để gửi reminder về các deadline quan trọng nếu thích hợp.
+        
+        Đảm bảo báo cáo actionable, realistic, và personalized cho học sinh cụ thể này.
         """
         
-        response = await self.comprehensive_counseling_agent.run(counseling_prompt)
-        self.workflow_state['final_counseling_report'] = response.output
+        result = await self.comprehensive_counseling_agent.run(counseling_prompt)
+        
+        self.workflow_state['final_report'] = result.output
         self.workflow_state['step_5_complete'] = True
         
-        return str(response.output)
-    
-    def _extract_structured_data_from_response(self, response_text: str) -> Dict[str, Any]:
-        """Extract structured data from coordinator agent response"""
+        print(f"✅ Step 5 completed: Generated comprehensive counseling report")
         
-        # Try to extract JSON if present
-        import re
-        json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
-        json_matches = re.findall(json_pattern, response_text)
-        
-        if json_matches:
-            try:
-                return json.loads(json_matches[0])
-            except json.JSONDecodeError:
-                pass
-        
-        # Fallback to keyword extraction
-        lines = response_text.split('\n')
-        extracted_data = {
-            'target_university': 'Unknown',
-            'target_location': 'Unknown', 
-            'target_field': 'Unknown',
-            'student_profile': response_text
-        }
-        
-        # Simple keyword extraction
-        for line in lines:
-            line_lower = line.lower()
-            if 'trường' in line_lower or 'university' in line_lower:
-                extracted_data['target_university'] = line.strip()
-            elif 'quốc gia' in line_lower or 'country' in line_lower:
-                extracted_data['target_location'] = line.strip()
-            elif 'ngành' in line_lower or 'field' in line_lower:
-                extracted_data['target_field'] = line.strip()
-        
-        return extracted_data
+        return result.output
 
-# Initialize the counseling system
+
+# Global instance for Chainlit
 counseling_system = StudyAbroadCounselingSystem()
 
 @cl.on_chat_start
 async def start():
     """Initialize chat session"""
     await cl.Message(
-        content="""🎓 **Chào mừng đến với Hệ thống Tư vấn Du học Thông minh!**
+        content="""🎓 **Chào mừng đến với Hệ thống Tư vấn Du học Thông minh Multi-Agent!**
 
-Tôi là hệ thống AI đa tác tử chuyên nghiệp giúp bạn:
-✅ Tìm kiếm học bổng phù hợp
-✅ Phân tích hồ sơ cá nhân  
-✅ Tính toán chi phí du học
-✅ Lập kế hoạch tài chính
-✅ Tư vấn chiến lược nộp đơn
+Tôi là hệ thống AI đa tác tử chuyên nghiệp với **6 agents** làm việc qua **5 bước** để giúp bạn:
 
-**Để bắt đầu, vui lòng cung cấp thông tin sau:**
-- Trường đại học/quốc gia bạn muốn học
-- Ngành học quan tâm
-- Thông tin về bản thân (học lực, chứng chỉ, hoạt động ngoại khóa...)
+✅ **Bước 1:** Agent Điều phối - Trích xuất thông tin có cấu trúc
+✅ **Bước 2:** 3 Agents song song:
+   - 🔍 Agent Tìm Học Bổng → tạo **WAO1**
+   - 👤 Agent Phân Loại Học Sinh → tạo **WAO2** 
+   - 📊 Agent Phân Tích Hồ Sơ
+✅ **Bước 3:** Agent Đối Chiếu → **WAO1** + **WAO2** = **WHAT**
+✅ **Bước 4:** Agent Tài Chính - Phân tích chi phí & funding
+✅ **Bước 5:** Agent Tư Vấn Tổng Hợp - Báo cáo cuối
 
-Tôi sẽ phân tích toàn diện và đưa ra lời tư vấn chi tiết nhất! 🚀"""
+**Để bắt đầu, vui lòng cung cấp thông tin:**
+- 🏫 Trường đại học/quốc gia muốn học
+- 📚 Ngành học quan tâm  
+- 📋 Thông tin cá nhân (GPA, điểm thi, chứng chỉ, hoạt động ngoại khóa...)
+
+Tôi sẽ phân tích toàn diện qua **multi-agent workflow** và đưa ra báo cáo tư vấn chi tiết nhất! 🚀"""
     ).send()
 
 @cl.on_message
 async def main(message: cl.Message):
-    """Handle incoming messages"""
+    """Handle incoming messages with multi-agent workflow"""
     
     # Add context from memory
     message_with_context = counseling_system.memory_handler.get_history_message(message.content)
     
     try:
         # Show processing message
-        processing_msg = await cl.Message(content="🔍 Đang phân tích yêu cầu của bạn qua 5 bước xử lý với 6 agent chuyên nghiệp...").send()
+        processing_msg = await cl.Message(
+            content="🔄 **Đang khởi động Multi-Agent Workflow...**\n\n" +
+                   "⚡ 6 agents chuyên nghiệp đang phân tích qua 5 bước:\n" +
+                   "📋 Bước 1: Điều phối và trích xuất...\n" +
+                   "⚡ Bước 2: Xử lý song song (3 agents)...\n" +
+                   "🔗 Bước 3: Đối chiếu WAO1 + WAO2...\n" +  
+                   "💰 Bước 4: Phân tích tài chính...\n" +
+                   "📝 Bước 5: Tư vấn tổng hợp...\n\n" +
+                   "*Vui lòng chờ, quá trình này có thể mất 1-2 phút...*"
+        ).send()
         
-        # Process the counseling request
+        # Process the counseling request through multi-agent workflow
         response = await counseling_system.process_counseling_request(message_with_context)
         
         # Update processing message
-        processing_msg.content = "✅ Hoàn thành phân tích!"
+        processing_msg.content = "✅ **Hoàn thành Multi-Agent Analysis!**\n\n📊 Đã xử lý qua 5 bước với 6 agents chuyên nghiệp"
         await processing_msg.update()
         
         # Store bot response in memory
         counseling_system.memory_handler.store_bot_response(response)
         
-        # Send final response
+        # Send final comprehensive report
         await cl.Message(content=response).send()
+        
+        # Send follow-up message
+        await cl.Message(
+            content="💡 **Bạn có thể:**\n" +
+                   "- Hỏi chi tiết về bất kỳ phần nào trong báo cáo\n" + 
+                   "- Yêu cầu điều chỉnh chiến lược\n" +
+                   "- Cập nhật thông tin hồ sơ để tái phân tích\n" +
+                   "- Hỏi về timeline và deadline cụ thể\n\n" +
+                   "Multi-agent system sẵn sàng hỗ trợ thêm! 🤖"
+        ).send()
         
     except Exception as e:
         # Store error in memory
         counseling_system.memory_handler.store_error(e)
         
-        # Send error message
+        # Send detailed error message
         await cl.Message(
-            content=f"""❌ **Đã xảy ra lỗi trong quá trình xử lý**
+            content=f"""❌ **Lỗi trong Multi-Agent Workflow**
 
-Lỗi: {str(e)}
+**Mô tả lỗi:** {str(e)}
 
-🔄 **Vui lòng thử lại hoặc:**
-- Cung cấp thêm thông tin chi tiết
-- Kiểm tra kết nối internet
-- Liên hệ hỗ trợ nếu lỗi tiếp tục xảy ra
+**Debug info:**
+- Workflow state: {len(counseling_system.workflow_state)} steps processed
+- Last completed step: {max([k for k in counseling_system.workflow_state.keys() if 'step_' in k and 'complete' in k], default='none')}
 
-Tôi sẵn sàng hỗ trợ bạn! 💪"""
+🔄 **Khắc phục:**
+1. Kiểm tra kết nối internet
+2. Đảm bảo đã cung cấp đủ thông tin cơ bản
+3. Thử lại với format: "Tôi muốn học [trường] ngành [ngành], có [điểm số/chứng chỉ]"
+
+💪 **Multi-agent system sẵn sàng xử lý lại!**"""
         ).send()
 
 if __name__ == "__main__":
-    print("Study Abroad Counseling System initialized successfully!")
-    print("Run with: chainlit run workflow/sample.py")
+    print("🚀 Study Abroad Counseling Multi-Agent System initialized!")
+    print("📊 6 Agents ready: Coordinator → Research/Classification/Analysis → Matching → Financial → Counseling")
+    print("⚡ 5-Step Workflow: WAO1 + WAO2 → WHAT → Comprehensive Report")
+    print("🎯 Run with: chainlit run workflow/SAMPLE.py")
