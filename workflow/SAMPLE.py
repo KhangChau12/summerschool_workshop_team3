@@ -1,6 +1,6 @@
 # Study Abroad Counseling Multi-Agent Workflow
 # workflow/SAMPLE.py
-
+import logging
 import os
 import asyncio
 from typing import Dict, Any, List
@@ -164,49 +164,74 @@ class StudyAbroadCounselingSystem:
     
     async def _step_1_coordination(self, user_input: str):
         """Step 1: Coordinator Agent - Extract and structure user information"""
-        
-        coordination_prompt = f"""
-        Phân tích và trích xuất thông tin có cấu trúc từ yêu cầu của người dùng:
-        
-        "{user_input}"
-        
-        Trích xuất:
-        1. Trường đại học/tổ chức mục tiêu
-        2. Quốc gia/khu vực muốn học  
-        3. Ngành học/chuyên ngành
-        4. Thông tin hồ sơ cá nhân (GPA, điểm thi, chứng chỉ, hoạt động ngoại khóa)
-        5. Thông tin demographics (tuổi, giới tính, quốc tịch, tôn giáo nếu có)
-        
-        Trả về kết quả dưới dạng JSON có cấu trúc rõ ràng để các agent khác sử dụng.
-        """
-        
+
+        coordination_prompt = coordination_prompt = f"""
+Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ của bạn là phân tích yêu cầu của người dùng bên dưới và chuyển đổi nó thành một đối tượng JSON có cấu trúc chặt chẽ.
+
+**QUY TẮC BẮT BUỘC:**
+1.  **Phân tích kỹ lưỡng:** Đọc và hiểu rõ yêu cầu của người dùng trong phần `"{user_input}"`.
+2.  **Trích xuất thông tin:** Tìm và lấy ra các thông tin sau:
+    *   Trường đại học/tổ chức mục tiêu.
+    *   Quốc gia/khu vực muốn học.
+    *   Ngành học/chuyên ngành.
+    *   Hồ sơ cá nhân (GPA, điểm thi, hoạt động ngoại khóa, kinh nghiệm).
+    *   Thông tin nhân khẩu học (tuổi, giới tính, quốc tịch).
+3.  **Tuân thủ định dạng JSON:** Tạo một đối tượng JSON dựa trên mẫu (template) được cung cấp. Các khóa (keys) phải giống hệt như trong mẫu.
+4.  **Xử lý dữ liệu thiếu:** Nếu không tìm thấy thông tin nào trong yêu cầu của người dùng, BẮT BUỘC phải sử dụng giá trị `null` cho khóa tương ứng. Không được bỏ qua bất kỳ khóa nào trong cấu trúc JSON.
+5.  **QUAN TRỌNG NHẤT:** Phản hồi của bạn CHỈ ĐƯỢC PHÉP chứa đối tượng JSON hợp lệ. Tuyệt đối không thêm bất kỳ văn bản giải thích, lời chào, hay các dấu ```json nào trước hoặc sau đối tượng JSON. Toàn bộ đầu ra phải là một chuỗi JSON thuần túy.
+
+**Mẫu JSON (Template):**
+{{
+  "target_university": "string hoặc null",
+  "target_country": "string hoặc null",
+  "field_of_study": "string hoặc null",
+  "student_profile": {{
+    "gpa": "string mô tả GPA hoặc null",
+    "standardized_tests": "string mô tả điểm thi chuẩn hóa (ví dụ: 'SAT: 1550') hoặc null",
+    "english_proficiency": "string mô tả điểm tiếng Anh (ví dụ: 'IELTS: 7.5') hoặc null",
+    "extracurriculars": "string mô tả hoạt động ngoại khóa hoặc null",
+    "experience": "string mô tả kinh nghiệm thực tập/nghiên cứu hoặc null"
+  }},
+  "demographics": {{
+    "age": "integer hoặc null",
+    "gender": "string hoặc null",
+    "nationality": "string hoặc null"
+  }}
+}}
+
+**Yêu cầu của người dùng:**
+---
+"{user_input}"
+---
+"""
         result = await self.coordinator_agent.run(coordination_prompt)
-        
-        # Parse và lưu structured data
+
+        # Phân tích và lưu trữ dữ liệu có cấu trúc
         try:
-            structured_data = json.loads(result.output)
-        except:
-            # Fallback if JSON parsing fails
+            # Cố gắng phân tích đầu ra từ AI thành JSON
+            output = result.output.replace("```json", "").replace("```", "").strip()
+            structured_data = json.loads(output)
+            self.workflow_state['step_1_complete'] = True
+            print(
+                f"✅ Step 1 completed: Extracted data for {structured_data.get('target_university', 'unknown university')}")
+
+        except json.JSONDecodeError as e:
+            # Nếu việc phân tích JSON thất bại, logic fallback sẽ được kích hoạt
+            # Ghi log chi tiết về lỗi để có thể debug sau này
+            print(f"FALLBACK TRIGGERED: Không thể phân tích JSON từ agent. Lỗi: {e}")
+            print(f"Đầu ra thô gây lỗi: {output}")
+
+            # Thay vì sử dụng dữ liệu mặc định, hãy lưu trạng thái lỗi.
+            # Điều này giúp các bước tiếp theo trong workflow biết rằng bước này đã thất bại.
             structured_data = {
-                "raw_output": result.output,
-                "target_university": "NUS",  # Default from example
-                "target_country": "Singapore",
-                "field_of_study": "Computer Science",
-                "student_profile": {
-                    "gpa_10": 9.8,
-                    "gpa_11": 9.8,
-                    "sat_score": 1550,
-                    "ielts_score": 7.5,
-                    "extracurricular": "Head of Media của dự án TIV (dự án từ thiện quy mô 200 người)",
-                    "internship": "Thực tập hè 3 tháng học về CV ở khoa học tự nhiên"
-                }
+                "error": "Failed to parse structured data from user input.",
+                "raw_output": output
             }
-        
+            self.workflow_state['step_1_complete'] = False  # Đánh dấu bước này chưa hoàn thành
+            print(f"⚠️ Step 1 failed: Could not extract structured data. Fallback logic was triggered.")
+
+        # Lưu kết quả (dù thành công hay thất bại) vào state
         self.workflow_state['structured_input'] = structured_data
-        self.workflow_state['step_1_complete'] = True
-        
-        print(f"✅ Step 1 completed: Extracted data for {structured_data.get('target_university', 'unknown university')}")
-    
     async def _step_2_parallel_processing(self):
         """Step 2: Parallel processing with 3 agents"""
         
@@ -475,6 +500,9 @@ counseling_system = StudyAbroadCounselingSystem()
 @cl.on_chat_start
 async def start():
     """Initialize chat session"""
+    # Clear Redis cache on startup
+    counseling_system.memory_handler.session_manager.clear_all_sessions()
+    
     await cl.Message(
         content="""🎓 **Chào mừng đến với Hệ thống Tư vấn Du học Thông minh Multi-Agent!**
 

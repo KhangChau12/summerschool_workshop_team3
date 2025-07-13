@@ -34,6 +34,12 @@ class ShortTermMemory:
         self.redis_client.delete(key)
         print(f"Deleted all messages for key: {key}")
 
+    def clear_all_sessions(self):
+        """Clear all sessions from Redis."""
+        for key in self.redis_client.scan_iter("user_*"):
+            self.redis_client.delete(key)
+        print("All user sessions cleared from Redis.")
+
     def get_session_key(self):
         """Get or create session key"""
         session_key = cl.user_session.get("session_key")
