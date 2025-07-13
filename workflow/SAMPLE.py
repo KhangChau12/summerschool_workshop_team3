@@ -31,7 +31,7 @@ from utils.basetools.financial_calculation_tool import financial_calculation_too
 from utils.basetools.send_email_tool import create_send_email_tool
 
 class StudyAbroadCounselingSystem:
-    """Multi-agent system for study abroad counseling"""
+    """Multi-agent system for study abroad counseling with Chainlit Steps visualization"""
     
     def __init__(self):
         # Initialize AI components
@@ -114,7 +114,7 @@ class StudyAbroadCounselingSystem:
     async def process_counseling_request(self, user_input: str) -> str:
         """
         Main workflow to process study abroad counseling request
-        Following the 5-step process with 6 agents
+        Following the 5-step process with 6 agents + Chainlit Steps visualization
         """
         try:
             print(f"🚀 Starting 5-step multi-agent workflow...")
@@ -162,10 +162,16 @@ class StudyAbroadCounselingSystem:
             print(f"❌ Workflow error: {e}")
             return error_message
     
+    @cl.step(type="llm", name="📋 Bước 1: Điều phối và trích xuất thông tin có cấu trúc")
     async def _step_1_coordination(self, user_input: str):
-        """Step 1: Coordinator Agent - Extract and structure user information"""
+        """Step 1: Coordinator Agent - Extract and structure user information with real-time display"""
+        current_step = cl.context.current_step
+        current_step.input = f"User request: {user_input}"
+        
+        await current_step.stream_token("🔍 Phân tích yêu cầu của người dùng...\n")
+        await asyncio.sleep(0.5)
 
-        coordination_prompt = coordination_prompt = f"""
+        coordination_prompt = f"""
 Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ của bạn là phân tích yêu cầu của người dùng bên dưới và chuyển đổi nó thành một đối tượng JSON có cấu trúc chặt chẽ.
 
 **QUY TẮC BẮT BUỘC:**
@@ -204,38 +210,51 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
 "{user_input}"
 ---
 """
+
+        await current_step.stream_token("📝 Trích xuất thông tin có cấu trúc từ AI...\n")
         result = await self.coordinator_agent.run(coordination_prompt)
 
+        await current_step.stream_token("🔧 Xử lý và validate dữ liệu JSON...\n")
+        
         # Phân tích và lưu trữ dữ liệu có cấu trúc
         try:
             # Cố gắng phân tích đầu ra từ AI thành JSON
             output = result.output.replace("```json", "").replace("```", "").strip()
             structured_data = json.loads(output)
             self.workflow_state['step_1_complete'] = True
-            print(
-                f"✅ Step 1 completed: Extracted data for {structured_data.get('target_university', 'unknown university')}")
+            
+            await current_step.stream_token(f"✅ Trích xuất thành công cho {structured_data.get('target_university', 'unknown university')}\n")
+            print(f"✅ Step 1 completed: Extracted data for {structured_data.get('target_university', 'unknown university')}")
 
         except json.JSONDecodeError as e:
             # Nếu việc phân tích JSON thất bại, logic fallback sẽ được kích hoạt
-            # Ghi log chi tiết về lỗi để có thể debug sau này
+            await current_step.stream_token(f"⚠️ Lỗi phân tích JSON, kích hoạt fallback logic...\n")
             print(f"FALLBACK TRIGGERED: Không thể phân tích JSON từ agent. Lỗi: {e}")
             print(f"Đầu ra thô gây lỗi: {output}")
 
-            # Thay vì sử dụng dữ liệu mặc định, hãy lưu trạng thái lỗi.
-            # Điều này giúp các bước tiếp theo trong workflow biết rằng bước này đã thất bại.
             structured_data = {
                 "error": "Failed to parse structured data from user input.",
                 "raw_output": output
             }
-            self.workflow_state['step_1_complete'] = False  # Đánh dấu bước này chưa hoàn thành
+            self.workflow_state['step_1_complete'] = False
             print(f"⚠️ Step 1 failed: Could not extract structured data. Fallback logic was triggered.")
 
-        # Lưu kết quả (dù thành công hay thất bại) vào state
+        # Lưu kết quả và hiển thị output
         self.workflow_state['structured_input'] = structured_data
+        current_step.output = f"Structured Data:\n{json.dumps(structured_data, ensure_ascii=False, indent=2)}"
+
+    @cl.step(type="tool", name="⚡ Bước 2: Xử lý song song với 3 agents")
     async def _step_2_parallel_processing(self):
-        """Step 2: Parallel processing with 3 agents"""
+        """Step 2: Parallel processing with 3 agents - with real-time progress"""
+        current_step = cl.context.current_step
         
         structured_data = self.workflow_state.get('structured_input', {})
+        current_step.input = f"Structured data from Step 1"
+        
+        await current_step.stream_token("🚀 Khởi động 3 agents song song...\n")
+        await current_step.stream_token("🔍 Agent 2: Scholarship Research (WAO1)\n")
+        await current_step.stream_token("👤 Agent 3: Student Classification (WAO2)\n") 
+        await current_step.stream_token("📊 Agent 4: Profile Analysis\n")
         
         # Task 1: Scholarship Research (Agent 2)
         scholarship_research_task = self._research_scholarships(structured_data)
@@ -246,12 +265,16 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
         # Task 3: Profile Analysis (Agent 4)
         profile_analysis_task = self._analyze_profile(structured_data)
         
+        await current_step.stream_token("⏳ Đang xử lý song song...\n")
+        
         # Run all 3 tasks in parallel
         scholarship_result, classification_result, profile_result = await asyncio.gather(
             scholarship_research_task,
             student_classification_task,
             profile_analysis_task
         )
+        
+        await current_step.stream_token("✅ Hoàn thành xử lý song song!\n")
         
         # Store results
         self.workflow_state.update({
@@ -260,6 +283,11 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
             'profile_analysis_result': profile_result,
             'step_2_complete': True
         })
+        
+        current_step.output = f"""Parallel Processing Results:
+WAO1 (Scholarship Research): {len(scholarship_result)} chars
+WAO2 (Student Classification): {len(classification_result)} chars  
+Profile Analysis: {len(profile_result)} chars"""
         
         print(f"✅ Step 2 completed: Processed scholarship research, student classification, and profile analysis")
     
@@ -334,15 +362,23 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
         result = await self.profile_analysis_agent.run(analysis_prompt)
         return result.output
     
+    @cl.step(type="llm", name="🔗 Bước 3: Đối chiếu WAO1 + WAO2 → WHAT")
     async def _step_3_scholarship_matching(self):
         """Step 3: Match scholarships with student profile"""
+        current_step = cl.context.current_step
         
         wao1 = self.workflow_state.get('scholarship_research_result')  # Scholarships
         wao2 = self.workflow_state.get('student_classification_result')  # Student classification
         
+        current_step.input = f"WAO1 + WAO2 matching process"
+        
         if not wao1 or not wao2:
+            await current_step.stream_token("❌ Thiếu dữ liệu cho bước matching\n")
             print("❌ Missing data for matching step")
             return
+        
+        await current_step.stream_token("🔄 Đối chiếu học bổng với hồ sơ học sinh...\n")
+        await current_step.stream_token("📊 Tính toán độ phù hợp...\n")
         
         matching_prompt = f"""
         Sử dụng scholarship_matching_tool để đối chiếu:
@@ -364,14 +400,21 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
         Chỉ giữ lại những học bổng có độ phù hợp FAIR trở lên.
         """
         
+        await current_step.stream_token("🎯 Xếp hạng theo độ ưu tiên...\n")
         result = await self.scholarship_matching_agent.run(matching_prompt)
+        
+        await current_step.stream_token("✅ Tạo danh sách WHAT thành công!\n")
+        
         self.workflow_state['matched_scholarships'] = result.output
         self.workflow_state['step_3_complete'] = True
         
+        current_step.output = f"WHAT - Matched Scholarships:\n{result.output[:500]}..."
         print(f"✅ Step 3 completed: Generated WHAT - matched scholarships list")
     
+    @cl.step(type="tool", name="💰 Bước 4: Phân tích tài chính và funding")
     async def _step_4_financial_analysis(self):
         """Step 4: Financial research and calculation"""
+        current_step = cl.context.current_step
         
         matched_scholarships = self.workflow_state.get('matched_scholarships')
         student_data = self.workflow_state.get('student_classification_result')
@@ -380,6 +423,11 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
         university = structured_input.get('target_university', 'NUS')
         field = structured_input.get('field_of_study', 'Computer Science')
         country = structured_input.get('target_country', 'Singapore')
+        
+        current_step.input = f"Financial analysis for {university} - {field}"
+        
+        await current_step.stream_token("🌐 Tìm kiếm thông tin học phí và chi phí sinh hoạt...\n")
+        await current_step.stream_token("💵 Tính toán tổng chi phí...\n")
         
         financial_prompt = f"""
         Thực hiện phân tích tài chính toàn diện:
@@ -400,14 +448,23 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
         Đưa ra recommended funding strategy với timeline cụ thể.
         """
         
+        await current_step.stream_token("📊 Phân tích các phương án funding...\n")
+        await current_step.stream_token("📈 Tính toán ROI...\n")
+        
         result = await self.financial_research_agent.run(financial_prompt)
+        
+        await current_step.stream_token("✅ Hoàn thành chiến lược tài chính!\n")
+        
         self.workflow_state['financial_analysis'] = result.output
         self.workflow_state['step_4_complete'] = True
         
+        current_step.output = f"Financial Analysis Results:\n{result.output[:500]}..."
         print(f"✅ Step 4 completed: Financial analysis and funding strategy")
     
+    @cl.step(type="llm", name="📝 Bước 5: Tư vấn tổng hợp và báo cáo cuối")
     async def _step_5_comprehensive_counseling(self) -> str:
         """Step 5: Comprehensive counseling and final recommendations"""
+        current_step = cl.context.current_step
         
         # Gather all workflow results
         all_results = {
@@ -418,6 +475,11 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
             'matched_scholarships': self.workflow_state.get('matched_scholarships'),
             'financial_analysis': self.workflow_state.get('financial_analysis')
         }
+        
+        current_step.input = "Synthesizing all 5 steps of analysis"
+        
+        await current_step.stream_token("📋 Tổng hợp tất cả kết quả từ 4 bước trước...\n")
+        await current_step.stream_token("📊 Tạo executive summary...\n")
         
         counseling_prompt = f"""
         Tổng hợp tất cả kết quả từ 4 bước trước để tạo báo cáo tư vấn du học toàn diện:
@@ -484,11 +546,18 @@ Bạn là một AI chuyên gia về trích xuất dữ liệu. Nhiệm vụ củ
         Đảm bảo báo cáo actionable, realistic, và personalized cho học sinh cụ thể này.
         """
         
+        await current_step.stream_token("🎯 Tạo khuyến nghị ưu tiên...\n")
+        await current_step.stream_token("📅 Xây dựng timeline ứng tuyển...\n")
+        await current_step.stream_token("💡 Phát triển chiến lược cải thiện...\n")
+        
         result = await self.comprehensive_counseling_agent.run(counseling_prompt)
+        
+        await current_step.stream_token("✅ Báo cáo tư vấn toàn diện hoàn thành!\n")
         
         self.workflow_state['final_report'] = result.output
         self.workflow_state['step_5_complete'] = True
         
+        current_step.output = f"Comprehensive Counseling Report:\n{result.output[:800]}..."
         print(f"✅ Step 5 completed: Generated comprehensive counseling report")
         
         return result.output
@@ -522,35 +591,22 @@ Tôi là hệ thống AI đa tác tử chuyên nghiệp với **6 agents** làm 
 - 📚 Ngành học quan tâm  
 - 📋 Thông tin cá nhân (GPA, điểm thi, chứng chỉ, hoạt động ngoại khóa...)
 
-Tôi sẽ phân tích toàn diện qua **multi-agent workflow** và đưa ra báo cáo tư vấn chi tiết nhất! 🚀"""
+Tôi sẽ phân tích toàn diện qua **multi-agent workflow** và đưa ra báo cáo tư vấn chi tiết nhất! 🚀
+
+*Bạn sẽ thấy từng bước xử lý real-time với Chain of Thought!* 👀"""
     ).send()
 
 @cl.on_message
 async def main(message: cl.Message):
-    """Handle incoming messages with multi-agent workflow"""
+    """Handle incoming messages with multi-agent workflow visualization"""
     
     # Add context from memory
     message_with_context = counseling_system.memory_handler.get_history_message(message.content)
     
     try:
-        # Show processing message
-        processing_msg = await cl.Message(
-            content="🔄 **Đang khởi động Multi-Agent Workflow...**\n\n" +
-                   "⚡ 6 agents chuyên nghiệp đang phân tích qua 5 bước:\n" +
-                   "📋 Bước 1: Điều phối và trích xuất...\n" +
-                   "⚡ Bước 2: Xử lý song song (3 agents)...\n" +
-                   "🔗 Bước 3: Đối chiếu WAO1 + WAO2...\n" +  
-                   "💰 Bước 4: Phân tích tài chính...\n" +
-                   "📝 Bước 5: Tư vấn tổng hợp...\n\n" +
-                   "*Vui lòng chờ, quá trình này có thể mất 1-2 phút...*"
-        ).send()
-        
-        # Process the counseling request through multi-agent workflow
+        # NO MORE static processing message - Steps will show real-time progress
+        # Process the counseling request through multi-agent workflow with real-time visualization
         response = await counseling_system.process_counseling_request(message_with_context)
-        
-        # Update processing message
-        processing_msg.content = "✅ **Hoàn thành Multi-Agent Analysis!**\n\n📊 Đã xử lý qua 5 bước với 6 agents chuyên nghiệp"
-        await processing_msg.update()
         
         # Store bot response in memory
         counseling_system.memory_handler.store_bot_response(response)
@@ -591,7 +647,7 @@ async def main(message: cl.Message):
         ).send()
 
 if __name__ == "__main__":
-    print("🚀 Study Abroad Counseling Multi-Agent System initialized!")
-    print("📊 6 Agents ready: Coordinator → Research/Classification/Analysis → Matching → Financial → Counseling")
+    print("🚀 Study Abroad Counseling Multi-Agent System with Chainlit Steps!")
+    print("📊 Real-time Chain of Thought: 6 Agents → 5 Steps → Live Progress")
     print("⚡ 5-Step Workflow: WAO1 + WAO2 → WHAT → Comprehensive Report")
     print("🎯 Run with: chainlit run workflow/SAMPLE.py")

@@ -1,0 +1,27 @@
+/*body {*/
+/*    font-size: 100pt;*/
+/*}*/
+/* Tùy chỉnh cho toàn bộ trang */
+#root {
+    background-image: url('/public/background.png');
+    background-size: cover; /* Đảm bảo hình nền che phủ toàn bộ trang */
+    background-repeat: no-repeat; /* Ngăn hình nền lặp lại */
+    background-position: center center; /* Căn giữa hình nền */
+    background-attachment: fixed; /* Giữ hình nền cố định khi cuộn */
+}
+
+/* Thêm lớp phủ mờ để văn bản dễ đọc hơn */
+#root::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5); /* Lớp phủ màu đen với độ mờ 50% */
+    z-index: -1; /* Đặt lớp phủ phía sau nội dung */
+}
+
+#root > * {
+   z-index: 1; /* Đảm bảo nội dung hiển thị phía trên lớp phủ */
+}

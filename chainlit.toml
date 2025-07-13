@@ -1,0 +1,81 @@
+# chainlit.toml - Cấu hình để hiển thị Chain of Thought
+
+[project]
+# Whether to enable telemetry (default: true). No personal data is collected.
+enable_telemetry = true
+
+# List of environment variables to be provided by each user to use the app.
+user_env = []
+
+# Duration (in seconds) during which the session is saved when the connection is lost
+session_timeout = 3600
+
+# Enable third parties caching (e.g LangChain cache)
+cache = false
+
+# Authorized origins
+allow_origins = ["*"]
+
+[features]
+# Process and display HTML in messages. This can be a security risk (see https://stackoverflow.com/questions/19603097/why-is-it-dangerous-to-render-user-generated-html-or-javascript)
+unsafe_allow_html = false
+
+# Process and display mathematical expressions. This can clash with "$" characters in messages.
+latex = false
+
+# Automatically tag threads with the current chat profile (if a chat profile is used)
+auto_tag_thread = true
+
+# Allow users to edit their own messages
+edit_message = true
+
+# Authorize users to spontaneously upload files with messages
+[features.spontaneous_file_upload]
+enabled = true
+accept = ["*/*"]
+max_files = 20
+max_size_mb = 500
+
+[features.audio]
+# Sample rate of the audio
+sample_rate = 24000
+
+[UI]
+# Name of the assistant.
+name = "Study Abroad Multi-Agent Counselor"
+
+# Show the readme while the thread is empty.
+show_readme_as_default = true
+
+# Description of the assistant. This is used for HTML tags.
+description = "Multi-Agent Study Abroad Counseling System with Real-time Chain of Thought"
+
+# Chain of Thought (CoT) display mode. Can be "hidden", "tool_call" or "full".
+# "full" hiển thị tất cả steps và thinking process
+# "tool_call" chỉ hiển thị tool calls
+# "hidden" ẩn tất cả
+cot = "full"
+
+# Hide the chain of thought details in the UI
+hide_cot = false
+
+# Link to your github repo. This will add a github button in the UI's header.
+# github = ""
+
+# Specify a CSS file that can be used to customize the user interface.
+# custom_css = "/public/style.css"
+
+# Default message to show when the chat is empty
+default_ask_user_message = "Cung cấp thông tin để bắt đầu phân tích multi-agent!"
+
+# Default expand messages in the UI.
+default_expand_messages = true
+
+# Authorize users to collapse and expand messages
+collapse_message = true
+
+# When handling large text content we collapse it for keeping the threads concise.
+collapse_content_max_height = 400
+
+# Auto-scroll to the latest user message
+user_message_autoscroll = true
